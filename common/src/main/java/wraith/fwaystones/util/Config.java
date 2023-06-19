@@ -20,6 +20,9 @@ public class Config implements ConfigData {
 		AutoConfig.getConfigHolder(Config.class).load();
 		Waystones.CONFIG = get();
 	}
+	public void save(){
+		AutoConfig.getConfigHolder(Config.class).save();
+	}
 	public static Config get() {
 		return AutoConfig.getConfigHolder(Config.class).getConfig();
 	}
@@ -39,6 +42,13 @@ public class Config implements ConfigData {
 		ITEM,
 		NONE
 	}
+	// ------------------------------------------------------------------------------------------------------
+	public boolean server_favorite_system = true;
+	public boolean client_favorite_system = true;
+	public boolean client_hide_config = false;
+	public boolean server_share_menu = true;
+	public boolean client_share_menu = true;
+	public boolean client_share_menu_show_playerhead = true;
 	// ------------------------------------------------------------------------------------------------------
 	public WorldgenSettings worldgen = new WorldgenSettings();
 	public CostSettings teleportation_cost = new CostSettings();

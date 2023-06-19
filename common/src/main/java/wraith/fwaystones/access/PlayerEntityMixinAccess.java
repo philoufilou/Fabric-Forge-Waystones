@@ -16,6 +16,10 @@ public interface PlayerEntityMixinAccess extends PlayerAccess {
 	void discoverWaystone(String hash);
 
 	void discoverWaystone(String hash, boolean sync);
+	void addFavoriteWaystone(WaystoneBlockEntity waystone);
+	void addFavoriteWaystone(String hash);
+	void removeFavoriteWaystone(WaystoneBlockEntity waystone);
+	void removeFavoriteWaystone(String hash);
 
 	boolean hasDiscoveredWaystone(WaystoneBlockEntity waystone);
 
@@ -28,6 +32,7 @@ public interface PlayerEntityMixinAccess extends PlayerAccess {
 	void syncData();
 
 	Set<String> getDiscoveredWaystones();
+	Set<String> getFavoritedWaystones();
 
 	ArrayList<String> getWaystonesSorted();
 
@@ -60,6 +65,10 @@ public interface PlayerEntityMixinAccess extends PlayerAccess {
 	boolean autofocusWaystoneFields();
 
 	void toggleAutofocusWaystoneFields();
+
+	boolean sortByFavoriteWaystones();
+
+	void toggleSortByFavoriteWaystones();
 
 	SearchType getSearchType();
 

@@ -59,6 +59,25 @@ public class ClientPlayerEntityMixin implements ClientPlayerEntityMixinAccess {
 		return waystones;
 	}
 	@Override
+	public ArrayList<String> getFavoritedHashesSorted() {
+		ArrayList<String> waystones = new ArrayList<>();
+		HashSet<String> toRemove = new HashSet<>();
+		var favoritedWaystones = ((PlayerEntityMixinAccess) this).getFavoritedWaystones();
+		for (String hash : favoritedWaystones) {
+			if (Waystones.STORAGE.containsHash(hash)) {
+				waystones.add(hash);
+			} else {
+				toRemove.add(hash);
+			}
+		}
+		for (String remove : toRemove) {
+			favoritedWaystones.remove(remove);
+		}
+
+		waystones.sort(Comparator.comparing(a -> Waystones.STORAGE.getName(a)));
+		return waystones;
+	}
+	@Override
 	public int getDiscoveredCount() {
 		return ((PlayerEntityMixinAccess) this).getDiscoveredCount();
 	}

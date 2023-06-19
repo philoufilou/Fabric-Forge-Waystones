@@ -37,6 +37,9 @@ dependencies {
     modApi("maven.modrinth:pinlib:$rootProject.pinlib_api_version")
     modRuntimeOnly("maven.modrinth:pinlib:$rootProject.pinlib_api_version")
 
+    // Share menu testing
+    modRuntimeOnly("curse.maven:carpet-349239:4446319")
+
     common(project(path: ":common", configuration: "namedElements")) { transitive false }
     shadowCommon(project(path: ":common", configuration: "transformProductionFabric")) { transitive false }
 }

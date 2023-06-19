@@ -31,10 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mixin(Player.class)
 public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 	private final Set<String> discoveredWaystones = ConcurrentHashMap.newKeySet();
+	private final Set<String> favoritedWaystones = ConcurrentHashMap.newKeySet();
 	private boolean viewDiscoveredWaystones = true;
 	private boolean viewGlobalWaystones = true;
 	private boolean autofocusWaystoneFields = true;
-	private boolean favoriteWaystoneLock = true;
+	private boolean sortByFavoriteWaystones = false;
 	private SearchType waystoneSearchType = SearchType.CONTAINS;
 	private int teleportCooldown = 0;
 	private Player _this() {
@@ -84,6 +85,24 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 			syncData();
 		}
 	}
+	@Override
+	public void addFavoriteWaystone(WaystoneBlockEntity waystone) {
+		addFavoriteWaystone(waystone.getHash());
+	}
+	@Override
+	public void addFavoriteWaystone(String hash) {
+		favoritedWaystones.add(hash);
+		syncData();
+	}
+	@Override
+	public void removeFavoriteWaystone(WaystoneBlockEntity waystone) {
+		removeFavoriteWaystone(waystone.getHash());
+	}
+	@Override
+	public void removeFavoriteWaystone(String hash) {
+		favoritedWaystones.remove(hash);
+		syncData();
+	}
 
 	@Override
 	public boolean hasDiscoveredWaystone(WaystoneBlockEntity waystone) {
@@ -104,6 +123,7 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 	public void forgetWaystone(String hash, boolean sync) {
 		var waystone = Waystones.STORAGE.getWaystoneEntity(hash);
 		var player = _this();
+		favoritedWaystones.remove(hash);
 		if (waystone != null) {
 			if (waystone.isGlobal()) {
 				return;
@@ -133,6 +153,11 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 	@Override
 	public Set<String> getDiscoveredWaystones() {
 		return discoveredWaystones;
+	}
+
+	@Override
+	public Set<String> getFavoritedWaystones() {
+		return favoritedWaystones;
 	}
 
 	@Override
@@ -178,6 +203,25 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 				a -> Waystones.STORAGE.getWaystoneEntity(a).getWaystoneName()));
 		return waystones;
 	}
+	@Override
+	public ArrayList<String> getFavoritedHashesSorted() {
+		ArrayList<String> waystones = new ArrayList<>();
+		HashSet<String> toRemove = new HashSet<>();
+		for (String hash : favoritedWaystones) {
+			if (Waystones.STORAGE.containsHash(hash)) {
+				waystones.add(hash);
+			} else {
+				toRemove.add(hash);
+			}
+		}
+		for (String remove : toRemove) {
+			favoritedWaystones.remove(remove);
+		}
+
+		waystones.sort(Comparator.comparing(
+				a -> Waystones.STORAGE.getWaystoneEntity(a).getWaystoneName()));
+		return waystones;
+	}
 
 	@Inject(method = "addAdditionalSaveData", at = @At("RETURN"))
 	public void writeCustomDataToNbt(CompoundTag tag, CallbackInfo ci) {
@@ -191,12 +235,16 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 		for (String waystone : discoveredWaystones) {
 			waystones.add(StringTag.valueOf(waystone));
 		}
+		ListTag favoritedwaystones = new ListTag();
+		for (String favoritedwaystone : favoritedWaystones) {
+			favoritedwaystones.add(StringTag.valueOf(favoritedwaystone));
+		}
 		customTag.put("discovered_waystones", waystones);
+		customTag.put("favorited_waystones", favoritedwaystones);
 		customTag.putBoolean("view_discovered_waystones", this.viewDiscoveredWaystones);
 		customTag.putBoolean("view_global_waystones", this.viewGlobalWaystones);
 		customTag.putBoolean("autofocus_waystone_fields", this.autofocusWaystoneFields);
-		customTag.putBoolean("favorite_waystone_lock", this.favoriteWaystoneLock);
-
+		customTag.putBoolean("sort_favorite_waystones", this.sortByFavoriteWaystones);
 		customTag.putString("waystone_search_type", this.waystoneSearchType.name());
 
 		tag.put(Waystones.MOD_ID, customTag);
@@ -239,6 +287,18 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 						}
 					});
 		}
+		if (tag.contains("favorited_waystones")) {
+			favoritedWaystones.clear();
+			HashSet<String> hashes = new HashSet<>();
+			if (Waystones.STORAGE != null) {
+				hashes = Waystones.STORAGE.getAllHashes();
+			}
+			tag.getList("favorited_waystones", Tag.TAG_STRING)
+					.stream()
+					.map(Tag::getAsString)
+					.filter(hashes::contains)
+					.forEach(favoritedWaystones::add);
+		}
 		if (tag.contains("view_global_waystones")) {
 			this.viewGlobalWaystones = tag.getBoolean("view_global_waystones");
 		}
@@ -248,8 +308,8 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 		if (tag.contains("autofocus_waystone_fields")) {
 			this.autofocusWaystoneFields = tag.getBoolean("autofocus_waystone_fields");
 		}
-		if (tag.contains("favorite_waystone_lock")) {
-			this.favoriteWaystoneLock = tag.getBoolean("favorite_waystone_lock");
+		if (tag.contains("sort_favorite_waystones")) {
+			this.sortByFavoriteWaystones = tag.getBoolean("sort_favorite_waystones");
 		}
 		if (tag.contains("waystone_search_type")) {
 			try {
@@ -305,6 +365,7 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 	@Override
 	public void forgetAllWaystones() {
 		discoveredWaystones.clear();
+		favoritedWaystones.clear();
 		WaystoneEvents.FORGET_ALL_WAYSTONES_EVENT.invoker().onForgetAll(_this());
 		//discoveredWaystones.forEach(hash -> forgetWaystone(hash, false));
 		syncData();
@@ -318,6 +379,15 @@ public class PlayerEntityMixin implements PlayerEntityMixinAccess {
 	@Override
 	public void toggleAutofocusWaystoneFields() {
 		autofocusWaystoneFields = !autofocusWaystoneFields;
+	}
+	@Override
+	public boolean sortByFavoriteWaystones() {
+		return sortByFavoriteWaystones;
+	}
+
+	@Override
+	public void toggleSortByFavoriteWaystones() {
+		sortByFavoriteWaystones = !sortByFavoriteWaystones;
 	}
 
 	@Override

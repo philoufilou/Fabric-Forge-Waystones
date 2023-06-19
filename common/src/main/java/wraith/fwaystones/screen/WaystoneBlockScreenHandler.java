@@ -1,16 +1,28 @@
 package wraith.fwaystones.screen;
 
+import com.mojang.authlib.GameProfile;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import wraith.fwaystones.Waystones;
+import wraith.fwaystones.access.PlayerEntityMixinAccess;
 import wraith.fwaystones.block.WaystoneBlockEntity;
 import wraith.fwaystones.registry.MenuRegister;
 import wraith.fwaystones.util.PacketHandler;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -129,4 +141,65 @@ public class WaystoneBlockScreenHandler extends UniversalWaystoneScreenHandler {
 		return this.owner != null;
 	}
 
+
+
+
+
+
+
+
+
+
+
+
+	protected ArrayList<PlayerData> sortedPlayers = new ArrayList<>();
+	protected ArrayList<PlayerData> filteredOnlinePlayers = new ArrayList<>();
+	protected String filterPlayers = "";
+
+	public int getPlayersCount() {// TODO:
+		return this.filteredOnlinePlayers.size();
+	}
+	public void updatePlayers(Player player){
+		if (!player.getLevel().isClientSide) {
+			return;
+		}
+		UUID self = player.getUUID();
+		this.sortedPlayers = new ArrayList<>();
+		Collection<PlayerInfo> playerInfos = Minecraft.getInstance().getConnection().getOnlinePlayers();
+		for (PlayerInfo playerInfo : playerInfos){
+
+
+			GameProfile gameProfile = playerInfo.getProfile();
+			if (gameProfile.isComplete() && playerInfo != null && gameProfile.getId() != self) {
+				sortedPlayers.add(new PlayerData(
+						gameProfile.getName(),
+						playerInfo.getSkinLocation(),
+						gameProfile.getId()
+				));
+			}
+		}
+		this.sortedPlayers.sort(Comparator.comparing(PlayerData::name));
+		filterPlayers();
+	}
+
+	public void filterPlayers() {
+		this.filteredOnlinePlayers.clear();
+		var searchType = ((PlayerEntityMixinAccess) player).getSearchType();
+		for (PlayerData player : this.sortedPlayers) {
+			String name = player.name().toLowerCase();
+			if ("".equals(this.filterPlayers) || searchType.match(name, filterPlayers)) {
+				filteredOnlinePlayers.add(player);
+			}
+		}
+	}
+	public ResourceLocation getSkin(int index){
+		return this.filteredOnlinePlayers.get(index).skin();
+	}
+	public String getPlayerName(int index){
+		return this.filteredOnlinePlayers.get(index).name();
+	}
+
+
+
+	public record PlayerData(String name, ResourceLocation skin, UUID id) {}
 }
